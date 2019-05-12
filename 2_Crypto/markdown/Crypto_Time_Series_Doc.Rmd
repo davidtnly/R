@@ -1,0 +1,130 @@
+---
+title: "Crypto Time Series Using Shiny"
+author: "David Ly"
+date: February 20, 2019
+output:
+  html_document: null
+  number_sections: yes
+  pdf_document: default
+  toc: yes
+  toc_depth: 3
+runtime: shiny
+---
+
+
+## Outline
+Cryptocurrency has been an hot topic amongst everyone especially when it rose to the prices close to $20,000. Cryptocurrency was basically a product of a mysterious "Satoshi Nakamoto" who is still unknown today. Satoshi created the "peer to peer electronic cash system" back in 2008 with the goal of decentralizing the idea of digital currency.
+
+#### Some Informative Articles/Websites
+* [Cointelegraph](https://cointelegraph.com/bitcoin-for-beginners)
+* [Blockgeeks](https://blockgeeks.com/guides/what-is-bitcoin/)
+* [Coindesk](https://www.coindesk.com/information)
+* [R Shiny](https://shiny.rstudio.com/articles/layout-guide.html)
+
+#### Start new
+```{r warning=FALSE}
+rm(list = ls())
+```
+
+#### Load libraries
+```{r warning=FALSE}
+library(shiny) 
+library(coindeskr) 
+library(dygraphs)
+library(xts)
+library(rsconnect)
+```
+
+#### Get price through function
+```{r}
+btc_price <- get_historic_price(start = "2018-01-01", end = "2019-02-19")
+```
+
+#### Load csv
+```{r}
+data <- read.csv("~/R Projects/Crypto/markdown/data.csv", stringsAsFactors = FALSE)
+data$Date <- as.Date(data$Date, format = "%m/%d/%Y")
+options(scipen = 000)
+str(data)
+```
+
+#### Create ui
+
+Create the UI on what will be shown in the interactive dashboard.
+
+```{r}
+ui <- shinyUI(
+  fluidPage(
+    # Create a title
+    titlePanel('Cryptocurrency Time Series'),
+    # Create a sidebar
+    sidebarLayout(
+      sidebarPanel(
+        # Add choices
+        selectInput('selectCoins', # unique inputID
+                    'Select Coin(s)', # label
+                    choices = c("bitcoin", "ethereum", "litecoin"), # options
+                    selected = c("ethereum", "litecoin"),
+                    multiple = T), # allows only one but set to T for multiple choices
+        # Add marketcaps
+        selectInput('selectOutput',
+                    'Select Output',
+                    choices = c(Price = "price", 'Market Cap' = "market")),
+        # Add date range
+        dateRangeInput('selectDate',
+                       'Select Date',
+                       start = min(data$Date),
+                       end = max(data$Date))
+      ),
+    # Create a main panel
+    mainPanel(
+      mainPanel(div(dygraphOutput("priceGraph", width = "150%", height = "800px")))
+    )
+  )))
+```
+
+#### Extract data into ui using server function
+
+Get the data that will be within the dashboard. In this example, I am using a CSV file that I loaded in my directory.
+
+```{r}
+server <- function(input, output) { # both arguments are lists
+
+  # Build data (get inputs, filter data, return data)
+  getData <- reactive({
+    # step 1: get inputs
+    selectedCoins <- input$selectCoins
+    selectedOutput <- input$selectOutput
+    dates <- input$selectDate
+    startDate <- dates[1]
+    endDate <- dates[2]
+
+    # step 2: filter data
+    cryptoColumns <- colnames(data)
+    coinColumns <- cryptoColumns[cryptoColumns %in% paste0(selectedOutput, selectedCoins)]
+    selectedColumns <- append("Date", coinColumns)
+    newdata <- data[data$Date >= startDate & data$Date <= endDate, selectedColumns, drop = FALSE]
+    
+    # step 3: format and return data
+    if(selectedOutput == "market") {
+      newdata[coinColumns] <- lapply(newdata[coinColumns], FUN = function(x) x/1000000000)
+    }
+    colnames(newdata) <- gsub(selectedOutput, "", colnames(newdata))
+    newdata
+  })
+  
+  # create the interactive chart using dygraph
+  output$priceGraph <- renderDygraph({
+    newdata <- getData()
+    time_series <- xts(newdata, order.by = newdata$Date)
+    dygraph(time_series)
+  })
+}
+```
+
+#### Run Shiny
+```{r}
+# shinyApp(ui, server)
+# rsconnect::deployApp("R Projects/Crypto/final")
+```
+
