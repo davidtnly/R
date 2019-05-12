@@ -1,0 +1,196 @@
+---
+title: "Power Analysis in R"
+author: "David Ly"
+date: August 11, 2018
+output:
+  html_document: null
+  number_sections: yes
+  pdf_document: default
+  toc: yes
+  toc_depth: 3
+---
+
+# Outline
+Power analysis is an important aspect in experimental design. It allows us to determine the sample size required to detect an effect of a given size with a degree of confidence. It also allows us to determine the probability of detecting an affect of a given size with a given level of confidence, under sample size constraints.
+
+"Typically, before you do an experiment you should perform a power analysis to estimate the number ofobservations you need to have a good chance of detecting the effect you are looking for." 
+
+The idea is to minimize cost and time using these tests.
+
+# Links
+* [Bio Handbook](http://www.biostathandbook.com/power.html)
+* [R in Action: Chapter 10](http://ceal.fing.uncu.edu.ar/industrial/TyHM/DOE/R_in_Action.pdf)
+
+### Definitions
+* **Parameters**: sample size, effect size, significance level, power
+* **Effect** size: size of the difference between your Ho and Ha that you hope to detect.
+* **Power**: probability of detecting a given effect size with a given sample size
+* **Significance Level**: significance level wat which the test should be contacted at
+* **Beta**, in a power analysis, is the probability of accepting the null hypothesis, even though it is false (a false negative), when the real difference is equal to the minimum effect size. 
+
+In statistical terminology, the minimum deviation from your null hypothesis that you hope to detect to reject.
+
+
+### Install "pwr" package to use power analysis formulas
+
+```{r}
+if(!require(pwr)) {install.packages("pwr")}
+```
+
+# Examples
+
+### Power analysis for a binomial test
+
+```{r}
+p0 <- 0.75
+p1 <- 0.78
+h = ES.h(p0, p1) # Calculate effect size
+
+pwr.p.test(
+  h = h,
+  n = NULL, # NULL tells the function to calculate this
+  sig.level = 0.05,
+  power = 0.90, #1 - beta (1-.1(Type 2 Error)) = 0.90 
+  alternative = "two.sided"
+)
+```
+
+```{r}
+## Answer
+# proportion power calculation for binomial distribution (arcsine transformation) 
+# 
+# h = 0.07078702
+# n = 2096.953
+# sig.level = 0.05
+# power = 0.9
+
+# alternative = two.sided
+```
+
+### Power Analysis for unpaired t-test
+
+Add in cohen's d formula: An effect size used to indicate standardized between between two means 
+
+Cohen's D: This can be used in t-test/ANOVA results (appropriate effect size for the comparison of two means)
+
+```{r}
+m1 = 66.6 # mean for sample 1
+m2 = 64.6 # mean for sample 2
+s1 = 4.8  # sd for sample 1
+s2 = 3.6  # sd for sample 2
+
+cohen.d <- (m1 - m2)/sqrt(((s1^2) + (s2^2))/2) 
+
+pwr.t.test(
+  n = NULL,
+  d = cohen.d,
+  sig.level = 0.05, # type 1 probability
+  power = 0.80,     # 1 minus type 2 probability
+  type = "two.sample",
+  alternative = "two.sided"
+)
+```
+
+```{r}
+## Answer
+# Two-sample t test power calculation
+
+# n = 71.61288 (Approx. 72)
+# d = 0.4714045
+# sig.level = 0.05
+# power = 0.8
+# alternative = two.sided
+
+# NOTE: n is number in *each* group
+```
+
+### Calculate sample size for ANOVA (comparison of more than 2 groups) to get power = 0.80
+
+```{r}
+pwr.anova.test(
+  n = NULL,
+  k = 5,
+  f = 0.25, # effect size is f in ANOVA
+  sig.level = 0.05,
+  power = 0.80
+)
+```
+
+```{r}
+## Answer
+# Balanced one-way analysis of variance power calculation 
+
+# k = 5
+# n = 39.1534 (Approx. 40)
+# f = 0.25
+# sig.level = 0.05
+# power = 0.8
+
+# NOTE: n is number in each group
+```
+
+### Question: Detect if there is a difference between group 1 vs. group 2. How many students are needed to sample to have an 80% chance of a difference this large to be significant.
+
+```{r}
+mm1  = 66.6  # Mean for sample 1
+mm2  = 64.6  # Mean for sample 2
+sd1  = 4.80  # Std dev for sample 1
+sd2  = 3.60  # Std dev for sample 2
+
+Cohen.d = (mm1 - mm2)/sqrt(((sd1^2) + (sd2^2))/2)  
+
+pwr.t.test(
+  n = NULL,
+  d = Cohen.d,
+  sig.level = 0.05,
+  power = 0.80,
+  type = "two.sample",
+  alternative = "two.sided"
+)
+```
+
+```{r}
+## Answer
+# The result is 72, meaning that if group 2 were really 2 inches shorter than group 1 students, you'd need at least 72 students in each class to detect a significant difference 80% of the time, if the true difference really is 2.0 inches.
+```
+
+```{r}
+## Result Summary
+# Two-sample t test power calculation 
+
+# n = 71.61288
+# d = 0.4714045
+# sig.level = 0.05
+# power = 0.8
+# alternative = two.sided
+
+# NOTE: n is number in *each* group
+```
+
+
+### Test for 90% power of test (Need at least 96 students from each group to detect a significant difference 90% of the time.)
+
+```{r}
+pwr.t.test(
+  n = NULL,
+  d = Cohen.d,
+  sig.level = 0.05,
+  power = 0.90,
+  type = "two.sample",
+  alternative = "two.sided"
+)
+```
+
+```{r}
+## Result
+# Two-sample t test power calculation 
+
+# n = 95.53742
+# d = 0.4714045
+# sig.level = 0.05
+# power = 0.9
+# alternative = two.sided
+
+# NOTE: n is number in *each* group
+```
+
